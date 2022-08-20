@@ -23,6 +23,7 @@ import time
 # R = N'-(M*Q)
 #  Text: R 0..51
 #  Table 12: R 0..511
+# ClockPro uses the extended range listed in Table 12
 
 def CalcPQR(N,M):
     # P = max(4-int(log2(N/M)),0)
@@ -62,7 +63,6 @@ class PLL_Config:
     N: int = 0
     M: int = 0
     P: int = 0
-    N_p: int = 0
     Q: int = 0
     R: int = 0
 
@@ -82,9 +82,8 @@ def FindPLLParms(fin: float, vcofreq:float):
                 return((n,m, p_prime,vcofreq))
     return False
 
-# "optimized" version of code below
 # it can be implemented without dynamic memory allocations and only gives a single result
-# TODO: we also need to check if Y1 (or Y2 AND Y3) can be solved with a submultiple of f_in, bypassing the VCO core
+# TODO: we also need to check if (Y2 AND Y3) can be solved with a submultiple of f_in, bypassing the VCO core
 def FindFrequency_FirstServed(f: PLL_Config):
     f.f_out2 = f.f_out1 if f.f_out2 <= 0 else f.f_out2
     f.f_out3 = f.f_out2 if f.f_out3 <= 0 else f.f_out3
@@ -102,6 +101,7 @@ def FindFrequency_FirstServed(f: PLL_Config):
     pd3_max = int(min(math.ceil(f.f_vco_max/f.f_out3), 127))
 
     # search for the first valid and highest VCO frequency that matches all output
+    # we start at the top since ClockPro seems to do this
     for pd3 in range(pd3_max, pd3_min-1, -1):
         for pd2 in range(pd2_max, pd2_min-1, -1):
             for pd1 in range(pd1_max, pd1_min-1, -1):
