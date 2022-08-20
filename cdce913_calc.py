@@ -82,7 +82,7 @@ def FindPLLParms(fin: float, vcofreq:float):
                 return((n,m, p_prime,vcofreq))
     return False
 
-# it can be implemented without dynamic memory allocations and only gives a single result
+
 # TODO: we also need to check if (Y2 AND Y3) can be solved with a submultiple of f_in, bypassing the VCO core
 def FindFrequency_FirstServed(f: PLL_Config):
     f.f_out2 = f.f_out1 if f.f_out2 <= 0 else f.f_out2
@@ -104,7 +104,7 @@ def FindFrequency_FirstServed(f: PLL_Config):
     pd3_max = int(min(math.ceil(f.f_vco_max/f.f_out3), 127))
 
     # search for the first valid and highest VCO frequency that matches all output
-    # we start at the top since ClockPro seems to do this
+    # we start at the top since ClockPro seems to do this (to maximize jitter attenuation in the dividers?)
     for pd3 in range(pd3_max, pd3_min-1, -1):
         for pd2 in range(pd2_max, pd2_min-1, -1):
             for pd1 in range(pd1_max, pd1_min-1, -1):
