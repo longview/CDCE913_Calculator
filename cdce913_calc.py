@@ -90,8 +90,11 @@ def FindFrequency_FirstServed(f: PLL_Config):
 
     # calculate the possible range of PDs for each output
     if f.Y1bypass:
+        # in bypass mode it's just a single calculation
         pd1_min = int(f.f_in/f.f_out1)
         pd1_max = pd1_min
+        if f.f_in/f.f_out1 != pd1_min:
+            print("Y1 Bypass, but still can't solve out1")
     else:
         pd1_min = int(max(math.floor(f.f_vco_min/f.f_out1), 1))
         pd1_max = int(min(math.ceil(f.f_vco_max/f.f_out1), 127))
