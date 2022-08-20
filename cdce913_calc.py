@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 import math
+import time
 
 # calculate PLL tuning values for the CDCE913
 # based on datasheet section 9.2.2.2
@@ -64,9 +65,71 @@ class PLL_Config:
     Q: int = 0
     R: int = 0
 
+# search for a valid N/M set, by searching the range of M values
+# if N = M*(vcofreq/fin) is an integer then we have a match
+# and we can check it for validity
+def FindPLLParms(fin: float, vcofreq:float):
+    foundvalid = False
+    ratio = vcofreq/fin
+
+    for m in range (1,512):
+        n = m*ratio
+        if n == int(n) and n<=4095:
+            n = int(n)
+            p_prime = CalcPQR(n,m)
+            if (p_prime[3] == True):
+                return((n,m, p_prime,vcofreq))
+    return False
+
+# "optimized" version of code below
+# it can be implemented without dynamic memory allocations and only gives a single result
+def FindFrequency_FirstServed(f: PLL_Config):
+    f.f_out2 = f.f_out1 if f.f_out2 <= 0 else f.f_out2
+    f.f_out3 = f.f_out1 if f.f_out3 <= 0 else f.f_out3
+
+    # calculate the possible range of PDs for each output
+    pd1_min = int(max(math.floor(f.f_vco_min/f.f_out1), 1))
+    pd1_max = int(min(math.ceil(f.f_vco_max/f.f_out1), 127))
+    pd2_min = int(max(math.floor(f.f_vco_min/f.f_out2), 1))
+    pd2_max = int(min(math.ceil(f.f_vco_max/f.f_out2), 127))
+    pd3_min = int(max(math.floor(f.f_vco_min/f.f_out3), 1))
+    pd3_max = int(min(math.ceil(f.f_vco_max/f.f_out3), 127))
+
+    foundmatch = False
+    # search for the first valid and highest VCO frequency that matches all output
+    for pd1 in range(pd1_max, pd1_min-1, -1):
+        if foundmatch == True:
+                break
+        for pd2 in range(pd2_max, pd2_min-1, -1):
+            if foundmatch == True:
+                break
+            for pd3 in range(pd3_max, pd3_min-1, -1):
+                y1vco = f.f_out1 * pd1
+                y2vco = f.f_out2 * pd2
+                y3vco = f.f_out3 * pd3
+                if y1vco == y2vco and y1vco == y3vco:
+                    pllparms = FindPLLParms(f.f_in, y1vco)
+                    if pllparms == False:
+                        break
+                    else:
+                        f.f_vco = pllparms[3]
+                        f.N = pllparms[0]
+                        f.M = pllparms[1]
+                        f.P = pllparms[2][0]
+                        f.Q = pllparms[2][1]
+                        f.R = pllparms[2][2]
+                        f.PDiv1 = int(f.f_vco/f.f_out1)
+                        f.PDiv2 = int(f.f_vco/f.f_out2)
+                        f.PDiv3 = int(f.f_vco/f.f_out3)
+                        print(f)
+                        return
+    print("No match found")
+    return
+
+                    
 
 
-# find valud 
+# find values
 def FindFrequency(f: PLL_Config):
     # make a list of possible VCO frequencies based on the output divider range
     valid_vco_freqs_y1 = []
@@ -81,6 +144,7 @@ def FindFrequency(f: PLL_Config):
     # but for now just search the entire range
     # TODO: split into function
     # TODO: trick: Y1 can be bypass
+    # TODO: this requires either a large array or dynamic memory, not great!
     for pd in range(1,128):
         # early return; if it's already below minimum then it'll only get worse if we keep going
         if (f.f_out1 * pd)>=f.f_vco_max:
@@ -97,6 +161,8 @@ def FindFrequency(f: PLL_Config):
             break;
         if (f.f_out3 * pd)<=f.f_vco_max:
             valid_vco_freqs_y3.append(pd*f.f_out3)
+
+
     #print ("Plausible VCO frequencies Y1: " + str(valid_vco_freqs_y1))
     #print ("Plausible VCO frequencies Y2: " + str(valid_vco_freqs_y2))
     # find the common values
@@ -141,6 +207,18 @@ def FindFrequency(f: PLL_Config):
     
 
 
-g = PLL_Config(f_in=10e6, f_out1=24.576e6, f_out2=2.048e6)
+g = PLL_Config(f_in=8e6, f_out1=24.576e6, f_out2=2.048e6)
+c = g
+print()
+st = time.process_time_ns()
+FindFrequency(c)
+et = time.process_time_ns()
+res = et - st
+print('FindFrequency took:', res/1e6, ' ms')
 
-FindFrequency(g)
+print()
+st = time.process_time_ns()
+FindFrequency_FirstServed(g)
+et = time.process_time_ns()
+res = et - st
+print('FindFrequency_FirstServed took:', res/1e6, ' ms') # this gives a 0 result on Windows 10 - real fast?
