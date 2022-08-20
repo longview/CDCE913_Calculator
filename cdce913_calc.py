@@ -79,7 +79,6 @@ def FindFrequency(f: PLL_Config):
     # the search range can be narrowed by knowing the VCO range and output frequency
     # so we only need to search around f_vco_max/f_out to f_vco_min/f_out
     # but for now just search the entire range
-    # TODO: with multiple output frequencies we need to find a suitable union
     # TODO: split into function
     # TODO: trick: Y1 can be bypass
     for pd in range(1,128):
