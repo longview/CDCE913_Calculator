@@ -96,12 +96,12 @@ def FindFrequency_FirstServed(f: PLL_Config):
         if f.f_in/f.f_out1 != pd1_min:
             print("Y1 Bypass, but still can't solve out1")
     else:
-        pd1_min = int(max(math.floor(f.f_vco_min/f.f_out1), 1))
-        pd1_max = int(min(math.ceil(f.f_vco_max/f.f_out1), 127))
-    pd2_min = int(max(math.floor(f.f_vco_min/f.f_out2), 1))
-    pd2_max = int(min(math.ceil(f.f_vco_max/f.f_out2), 127))
-    pd3_min = int(max(math.floor(f.f_vco_min/f.f_out3), 1))
-    pd3_max = int(min(math.ceil(f.f_vco_max/f.f_out3), 127))
+        pd1_min = max(int(f.f_vco_min/f.f_out1), 1)
+        pd1_max = min(int(f.f_vco_max/f.f_out1), 127)
+    pd2_min = max(int(f.f_vco_min/f.f_out2), 1)
+    pd2_max = min(int(f.f_vco_max/f.f_out2), 127)
+    pd3_min = max(int(f.f_vco_min/f.f_out3), 1)
+    pd3_max = min(int(f.f_vco_max/f.f_out3), 127)
 
     # search for the first valid and highest VCO frequency that matches all output
     # we start at the top since ClockPro seems to do this (to maximize jitter attenuation in the dividers?)
@@ -141,7 +141,7 @@ def FindFrequency_FirstServed(f: PLL_Config):
                     
 
 
-g = PLL_Config(f_in=19.2e6, f_out1=19.2e6, f_out2=22.1184e6)
+g = PLL_Config(f_in=10e6, f_out1=1.306e6)
 
 print()
 st = time.process_time_ns()
