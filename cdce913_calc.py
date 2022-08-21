@@ -72,15 +72,22 @@ class PLL_Config:
 def FindPLLParms(fin: float, vcofreq:float):
     foundvalid = False
     ratio = vcofreq/fin
-
+    closestmatch = (0,0, (0,0),0, False, 1e9)
     for m in range (1,512):
-        n = m*ratio
-        if n == int(n) and n<=4095:
-            n = int(n)
+        n_p = m*ratio
+        n = int(n_p)
+        if n<=4095:
             p_prime = CalcPQR(n,m)
-            if (p_prime[3] == True):
-                return((n,m, p_prime,vcofreq))
-    return False
+            # check if this is a true valid match
+            if (p_prime[3] == True and n_p == n):
+                return((n,m, p_prime,vcofreq, True, 0))
+            # check if it's a valid approximation
+            elif p_prime[3] == True:
+                actualfreq = ((n/m)*fin)
+                freqerror = (actualfreq/vcofreq)-1
+                if abs(freqerror) < abs(closestmatch[5]):
+                    closestmatch = (n, m, p_prime, actualfreq, False, freqerror)
+    return closestmatch
 
 
 # TODO: we also need to check if (Y2 AND Y3) can be solved with a submultiple of f_in, bypassing the VCO core
@@ -94,7 +101,8 @@ def FindFrequency_FirstServed(f: PLL_Config):
         pd1_min = int(f.f_in/f.f_out1)
         pd1_max = pd1_min
         if f.f_in/f.f_out1 != pd1_min:
-            print("Y1 Bypass, but still can't solve out1")
+            print("Tried Y1 Bypass, but still can't solve for exact out1")
+            return
     else:
         pd1_min = max(int(f.f_vco_min/f.f_out1), 1)
         pd1_max = min(int(f.f_vco_max/f.f_out1), 127)
@@ -102,6 +110,8 @@ def FindFrequency_FirstServed(f: PLL_Config):
     pd2_max = min(int(f.f_vco_max/f.f_out2), 127)
     pd3_min = max(int(f.f_vco_min/f.f_out3), 1)
     pd3_max = min(int(f.f_vco_max/f.f_out3), 127)
+
+    bestapproximate = (0,0, (0,0),0, True, 1e9)
 
     # search for the first valid and highest VCO frequency that matches all output
     # we start at the top since ClockPro seems to do this (to maximize jitter attenuation in the dividers?)
@@ -116,32 +126,44 @@ def FindFrequency_FirstServed(f: PLL_Config):
                     
                 if y1vco == y2vco and y1vco == y3vco:
                     pllparms = FindPLLParms(f.f_in, y3vco)
-                    if not pllparms:
-                        break
+                    f.f_vco = pllparms[3]
+                    f.N = pllparms[0]
+                    f.M = pllparms[1]
+                    f.P = pllparms[2][0]
+                    f.Q = pllparms[2][1]
+                    f.R = pllparms[2][2]
+                    f.PDiv1 = pd1
+                    f.PDiv2 = pd2
+                    f.PDiv3 = pd3
+                    f.f_error1 = f.f_out1 - (f.f_vco/f.PDiv1)
+                    f.f_error2 = f.f_out2 - (f.f_vco/f.PDiv2)
+                    f.f_error3 = f.f_out3 - (f.f_vco/f.PDiv3)
+                    f.f_out1 = (f.f_vco/f.PDiv1)
+                    f.f_out2 = (f.f_vco/f.PDiv2)
+                    f.f_out3 = (f.f_vco/f.PDiv3)
+                    if not pllparms[4]:
+                        if abs(pllparms[5]) < abs(bestapproximate[5]):
+                            bestapproximate = pllparms
                     else:
-                        f.f_vco = pllparms[3]
-                        f.N = pllparms[0]
-                        f.M = pllparms[1]
-                        f.P = pllparms[2][0]
-                        f.Q = pllparms[2][1]
-                        f.R = pllparms[2][2]
-                        f.PDiv1 = pd1
-                        f.PDiv2 = pd2
-                        f.PDiv3 = pd3
-                        print(f)
+                        print("Exact match found: ")
+                        print(str(f))
                         return
+    if not bestapproximate[4]:
+        print("Search pass finished, best error: " +str(bestapproximate[5]*1e6) + " ppm.")
+        print(str(f))
+    else:
+        print("Search pass finished, didn't even come close.")
     # recursiveish
     if not f.Y1bypass:
         f.Y1bypass = True
+        print("Retrying with Y1 bypass")
         FindFrequency_FirstServed(f)
-    else:
-        print("No match found")
     return
 
                     
 
 
-g = PLL_Config(f_in=10e6, f_out1=1.306e6)
+g = PLL_Config(f_in=19.22e6, f_out1=19.22e6, f_out2=22.1184e6)
 
 print()
 st = time.process_time_ns()
